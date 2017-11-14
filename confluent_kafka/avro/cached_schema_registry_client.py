@@ -19,6 +19,7 @@
 #
 # derived from https://github.com/verisign/python-confluent-schemaregistry.git
 #
+import sys
 import json
 import logging
 from collections import defaultdict
@@ -168,9 +169,9 @@ class CachedSchemaRegistryClient(object):
                 # cache it
                 self._cache_schema(result, schema_id)
                 return result
-            except:
+            except ClientError as e:
                 # bad schema - should not happen
-                raise ClientError("Received bad schema from registry.")
+                raise ClientError("Received bad schema (id %s) from registry: %s" % (schema_id, str(e)))
 
     def get_latest_schema(self, subject):
         """
@@ -204,9 +205,9 @@ class CachedSchemaRegistryClient(object):
         else:
             try:
                 schema = loads(result['schema'])
-            except:
+            except ClientError:
                 # bad schema - should not happen
-                raise ClientError("Received bad schema from registry.")
+                raise
 
         self._cache_schema(schema, schema_id, subject, version)
         return (schema_id, schema, version)
@@ -269,7 +270,8 @@ class CachedSchemaRegistryClient(object):
             else:
                 log.error("Unable to check the compatibility")
                 False
-        except:
+        except: # noqa
+            log.error("_send_request() failed: %s" % sys.exc_info()[0])
             return False
 
     def update_compatibility(self, level, subject=None):
